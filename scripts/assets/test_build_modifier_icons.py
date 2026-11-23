@@ -1,6 +1,9 @@
+import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -10,6 +13,7 @@ from build_modifier_icons import (
     fit_size,
     find_modifier_file,
     load_rgba,
+    main,
     process_good,
     resize_rgba,
     source_candidates,
@@ -269,6 +273,87 @@ class BuildModifierIconsTests(unittest.TestCase):
             find_modifier_file(config, "positive.png"),
             Path(__file__).with_name("builtin_overlays").resolve() / "positive.png",
         )
+
+    def test_cli_targets_external_mod_image_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_dir = root / "mod" / "trade_goods"
+            source_dir.mkdir(parents=True)
+            Image.new("RGBA", (32, 32), (20, 40, 60, 255)).save(
+                source_dir / "icon_goods_cassava.png"
+            )
+            modifier_dir = root / "vanilla-overlays"
+            modifier_dir.mkdir()
+            Image.new("RGBA", (8, 8), (240, 180, 20, 255)).save(
+                modifier_dir / "positive.png"
+            )
+            Image.new("RGBA", (8, 8), (20, 80, 200, 255)).save(
+                modifier_dir / "negative.png"
+            )
+            output_dir = root / "mod" / "modifier_types"
+            config_path = root / "config.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "source_dir": "unused-source",
+                        "modifier_dir": "unused-modifiers",
+                        "output_dir": "unused-output",
+                        "output_size": [64, 64],
+                        "base": {
+                            "max_fraction": 0.6,
+                            "center_x": 0.45,
+                            "center_y": 0.45,
+                        },
+                        "modifiers": {
+                            "positive": {
+                                "file": "positive.png",
+                                "max_width": 16,
+                                "max_height": 16,
+                                "right_margin": 2,
+                                "bottom_margin": 2,
+                            },
+                            "negative": {
+                                "file": "negative.png",
+                                "max_width": 16,
+                                "max_height": 16,
+                                "right_margin": 2,
+                                "bottom_margin": 2,
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch.object(
+                sys,
+                "argv",
+                [
+                    "build_modifier_icons.py",
+                    "--good",
+                    "cassava",
+                    "--modifier",
+                    "positive",
+                    "--modifier",
+                    "negative",
+                    "--config",
+                    str(config_path),
+                    "--source-dir",
+                    str(source_dir),
+                    "--modifier-dir",
+                    str(modifier_dir),
+                    "--output-dir",
+                    str(output_dir),
+                    "--no-previews",
+                ],
+            ):
+                self.assertEqual(main(), 0)
+
+            for name in ("cassava_positive.png", "cassava_negative.png"):
+                output = output_dir / name
+                self.assertTrue(output.is_file())
+                with Image.open(output) as image:
+                    self.assertEqual(image.size, (64, 64))
 
 
 if __name__ == "__main__":

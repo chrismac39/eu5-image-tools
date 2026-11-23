@@ -407,9 +407,25 @@ def main() -> int:
     goods.add_argument("--good", help="Good ID, such as cassava.")
     goods.add_argument("--all-goods", action="store_true")
     modifiers = parser.add_mutually_exclusive_group(required=True)
-    modifiers.add_argument("--modifier", help="Modifier ID or overlay PNG filename.")
+    modifiers.add_argument(
+        "--modifier",
+        action="append",
+        help="Modifier ID or overlay PNG filename; repeat to select multiple.",
+    )
     modifiers.add_argument("--all-modifiers", action="store_true")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
+    parser.add_argument(
+        "--source-dir",
+        help="Override the base PNG directory; accepts absolute or tool-root-relative paths.",
+    )
+    parser.add_argument(
+        "--modifier-dir",
+        help="Override the local modifier PNG directory; accepts absolute or tool-root-relative paths.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        help="Override the master PNG output directory; accepts absolute or tool-root-relative paths.",
+    )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--no-previews", action="store_true")
     parser.add_argument("--contact-sheet", action="store_true")
@@ -418,7 +434,16 @@ def main() -> int:
     try:
         config_path = repository_path(args.config)
         config = load_config(config_path)
+        for argument, key in (
+            (args.source_dir, "source_dir"),
+            (args.modifier_dir, "modifier_dir"),
+            (args.output_dir, "output_dir"),
+        ):
+            if argument is not None:
+                config[key] = str(repository_path(argument))
         source_dir = repository_path(config["source_dir"])
+        if not source_dir.is_dir():
+            raise FileNotFoundError(f"Source directory does not exist: {source_dir}")
         if args.good:
             good_id = args.good
             if good_id.startswith("icon_goods_"):
@@ -450,7 +475,7 @@ def main() -> int:
                     + ", ".join(str(path) for path in modifier_directories(config))
                 )
         else:
-            modifier_names = (Path(args.modifier).stem,)
+            modifier_names = tuple(Path(value).stem for value in args.modifier)
         failures: list[tuple[Path, Exception]] = []
         total_written = 0
         total_skipped = 0

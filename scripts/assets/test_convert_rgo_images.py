@@ -1,7 +1,9 @@
 import struct
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -11,6 +13,7 @@ from convert_rgo_images import (
     convert_image,
     decode_dds,
     fit_rgba,
+    main,
     save_bgra_dds,
     save_bc3_dds,
     validate_dds,
@@ -152,6 +155,42 @@ class ConvertRgoImagesTests(unittest.TestCase):
             self.assertEqual(
                 validate_dds(dds_path, image.size, LEGACY_BC3, False),
                 1,
+            )
+
+    def test_cli_converts_images_in_an_external_mod_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_root = root / "mod" / "main_menu" / "gfx"
+            source_path = (
+                source_root / "interface" / "icons" / "trade_goods"
+                / "icon_goods_cassava.png"
+            )
+            source_path.parent.mkdir(parents=True)
+            Image.new("RGBA", (32, 32), (40, 80, 120, 255)).save(source_path)
+            preview_root = root / "previews"
+
+            with patch.object(
+                sys,
+                "argv",
+                [
+                    "convert_rgo_images.py",
+                    "--source",
+                    str(source_root),
+                    "--dds-output",
+                    str(source_root),
+                    "--preview-output",
+                    str(preview_root),
+                    "--mipmaps",
+                    "none",
+                ],
+            ):
+                self.assertEqual(main(), 0)
+
+            dds_path = source_path.with_suffix(".dds")
+            self.assertTrue(dds_path.is_file())
+            self.assertEqual(validate_dds(dds_path, (128, 128), BGRA, False), 1)
+            self.assertTrue(
+                (preview_root / source_path.relative_to(source_root)).is_file()
             )
 
 

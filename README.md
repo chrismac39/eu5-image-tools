@@ -24,7 +24,7 @@ From the repository root, create an environment and install Pillow:
 
 ```powershell
 py -m venv .venv
-.venv\Scripts\python.exe -m pip install -r scripts\assets\requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r scripts\assets\requirements.txt
 ```
 
 ## Import vanilla DDS icons as local overlays
@@ -35,7 +35,7 @@ modify the game files or package the imported artwork in this repository.
 List available paths (optionally filtered) to find a symbol:
 
 ```powershell
-.venv\Scripts\python.exe scripts\assets\import_vanilla_icons.py `
+.\.venv\Scripts\python.exe scripts\assets\import_vanilla_icons.py `
   --vanilla-icons-root "C:\Program Files (x86)\Steam\steamapps\common\Europa Universalis V\game\main_menu\gfx\interface\icons" `
   --list --search blocked
 ```
@@ -44,7 +44,7 @@ Select one or more DDS files and assign each a modifier ID. The path is
 relative to the icon root:
 
 ```powershell
-.venv\Scripts\python.exe scripts\assets\import_vanilla_icons.py `
+.\.venv\Scripts\python.exe scripts\assets\import_vanilla_icons.py `
   --vanilla-icons-root "C:\Program Files (x86)\Steam\steamapps\common\Europa Universalis V\game\main_menu\gfx\interface\icons" `
   --map blocked_cabinet=modifier_types\blocked_from_cabinet.dds `
   --map estate_tax=modifier_types\global_estate_max_tax.dds
@@ -75,7 +75,7 @@ no user-imported overlay with the same ID exists.
 Build one icon using a bundled badge:
 
 ```powershell
-.venv\Scripts\python.exe scripts\assets\build_modifier_icons.py `
+.\.venv\Scripts\python.exe scripts\assets\build_modifier_icons.py `
   --good oldworld_tropical_orchard --modifier positive --contact-sheet
 ```
 
@@ -96,10 +96,10 @@ previews and contact sheets are under `output/`.
 Build every bundled modifier for one good or every good:
 
 ```powershell
-.venv\Scripts\python.exe scripts\assets\build_modifier_icons.py `
+.\.venv\Scripts\python.exe scripts\assets\build_modifier_icons.py `
   --good oldworld_tropical_orchard --all-modifiers --contact-sheet
 
-.venv\Scripts\python.exe scripts\assets\build_modifier_icons.py `
+.\.venv\Scripts\python.exe scripts\assets\build_modifier_icons.py `
   --all-goods --all-modifiers --contact-sheet
 ```
 
@@ -123,8 +123,59 @@ includes PNGs in `input/modifiers/` and the bundled catalog.
 The included source artwork can be regenerated with:
 
 ```powershell
-.venv\Scripts\python.exe scripts\assets\generate_builtin_overlays.py
+.\.venv\Scripts\python.exe scripts\assets\generate_builtin_overlays.py
 ```
+
+## Use vanilla overlays on an existing mod
+
+The compositor can read base PNGs and write output PNGs directly in another
+mod repository. The directory options accept absolute paths; relative paths
+are resolved from this tools repository. For example, from this repository's
+root, set the paths to your own EU5 installation and mod checkout:
+
+```powershell
+$vanillaGame = "C:\path\to\Europa Universalis V\game"
+$vanillaIcons = Join-Path $vanillaGame "main_menu\gfx\interface\icons"
+$modRoot = "C:\path\to\Europa-Concordia"
+$graphics = Join-Path $modRoot "integration\patches\rgo-synthesis\main_menu\gfx"
+$goods = Join-Path $graphics "interface\icons\trade_goods"
+$modifierTypes = Join-Path $graphics "interface\icons\modifier_types"
+```
+
+List vanilla DDS paths, then import selected icons as PNG overlays. Map an
+import to the same ID as a bundled badge (such as `positive`) to override that
+badge, or use a new ID to add another variant. Imports go to the ignored local
+catalog by default; vanilla files are read-only.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\assets\import_vanilla_icons.py `
+  --vanilla-icons-root $vanillaIcons --list --search modifier_types
+
+.\.venv\Scripts\python.exe scripts\assets\import_vanilla_icons.py `
+  --vanilla-icons-root $vanillaIcons `
+  --map estate_tax=modifier_types\global_estate_max_tax.dds
+```
+
+Select one or more variants from the imported and bundled overlays and write
+them beside the mod's modifier-type icons. This example recreates the four
+standard RGO variants (including `cassava`) without adding the optional
+`blocked` and `allowed` badges:
+
+```powershell
+foreach ($modifier in @("positive", "negative", "inflation", "pop_demand")) {
+  & .\.venv\Scripts\python.exe scripts\assets\build_modifier_icons.py `
+    --all-goods --modifier $modifier `
+    --source-dir $goods `
+    --modifier-dir input\modifiers `
+    --output-dir $modifierTypes `
+    --overwrite
+}
+```
+
+To create just one trade good, replace `--all-goods` with `--good cassava`.
+`--modifier` can be repeated to compose multiple selected variants in one run.
+Previews and contact sheets remain in this repository's `output/` directory.
+The source mod PNGs are never modified.
 
 ## Convert PNG to DDS
 
@@ -133,8 +184,17 @@ default and writes DDS files beside them. To convert the modifier masters
 created above, point it at their `main_menu/gfx` root:
 
 ```powershell
-.venv\Scripts\python.exe scripts\assets\convert_rgo_images.py `
+.\.venv\Scripts\python.exe scripts\assets\convert_rgo_images.py `
   --source output\main_menu\gfx
+```
+
+For an external mod, point `--source` and `--dds-output` at its graphics root.
+Use the `main_menu\gfx` root so trade-good and modifier icon paths retain their
+expected sizing rules:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\assets\convert_rgo_images.py `
+  --source $graphics --dds-output $graphics
 ```
 
 The converter fits trade-good icons to 128 × 128 and modifier-type icons to
@@ -151,5 +211,5 @@ Other useful options include `--format bc3`, `--mipmaps none`,
 ## Tests
 
 ```powershell
-.venv\Scripts\python.exe -m unittest discover -s scripts\assets -p "test_*.py"
+.\.venv\Scripts\python.exe -m unittest discover -s scripts\assets -p "test_*.py"
 ```
