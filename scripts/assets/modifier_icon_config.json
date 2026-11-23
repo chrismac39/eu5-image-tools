@@ -1,0 +1,63 @@
+{
+  "source_dir": "input/trade_goods",
+  "modifier_dir": "input/modifiers",
+  "output_dir": "output/main_menu/gfx/interface/icons/modifier_types",
+  "preview_dir": "output/previews",
+  "contact_sheet": "output/contact_sheets/{good}.png",
+  "output_size": [1254, 1254],
+  "preview_size": [128, 128],
+  "resampling": "lanczos",
+  "base": {
+    "max_fraction": 0.83,
+    "center_x": 0.45,
+    "center_y": 0.45,
+    "offset_x": 0,
+    "offset_y": 0
+  },
+  "modifiers": {
+    "positive": {
+      "file": "positive.png",
+      "max_width": 430,
+      "max_height": 430,
+      "scale": 1.0,
+      "alpha_bbox_threshold": 0,
+      "right_margin": 24,
+      "bottom_margin": 24,
+      "horizontal_offset": 0,
+      "vertical_offset": 0
+    },
+    "negative": {
+      "file": "negative.png",
+      "max_width": 430,
+      "max_height": 430,
+      "scale": 1.0,
+      "alpha_bbox_threshold": 0,
+      "right_margin": 24,
+      "bottom_margin": 24,
+      "horizontal_offset": 0,
+      "vertical_offset": 0
+    },
+    "inflation": {
+      "file": "inflation.png",
+      "max_width": 430,
+      "max_height": 430,
+      "scale": 1.0,
+      "alpha_bbox_threshold": 0,
+      "right_margin": 24,
+      "bottom_margin": 24,
+      "horizontal_offset": 0,
+      "vertical_offset": 0
+    },
+    "pop_demand": {
+      "file": "pop_demand.png",
+      "max_width": 430,
+      "max_height": 430,
+      "scale": 1.0,
+      "alpha_bbox_threshold": 0,
+      "right_margin": 24,
+      "bottom_margin": 24,
+      "horizontal_offset": 0,
+      "vertical_offset": 0
+    }
+  }
+}
