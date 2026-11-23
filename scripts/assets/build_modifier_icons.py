@@ -10,7 +10,22 @@ from PIL import Image, ImageDraw, ImageFont
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = Path("scripts/assets/modifier_icon_config.json")
 MODIFIER_NAMES = ("positive", "negative", "inflation", "pop_demand")
-OUTPUT_SUFFIXES = {f"_{name}" for name in MODIFIER_NAMES}
+OUTPUT_SUFFIXES = {
+    "_positive",
+    "_negative",
+    "_impacts_inflation",
+    "_pop_demand",
+}
+DEFAULT_MODIFIER_SETTINGS = {
+    "max_width": 250,
+    "max_height": 250,
+    "scale": 1.0,
+    "alpha_bbox_threshold": 0,
+    "right_margin": 24,
+    "bottom_margin": 24,
+    "horizontal_offset": 0,
+    "vertical_offset": 0,
+}
 RESAMPLING_METHODS = {
     "nearest": Image.Resampling.NEAREST,
     "bilinear": Image.Resampling.BILINEAR,
@@ -228,12 +243,8 @@ def load_config(path: Path) -> dict[str, Any]:
         int(dimension) <= 0 for dimension in config["output_size"]
     ):
         raise ValueError("output_size must contain two positive dimensions")
-    missing_modifiers = set(MODIFIER_NAMES) - set(config["modifiers"])
-    if missing_modifiers:
-        raise ValueError(
-            "Missing modifier configuration(s): "
-            + ", ".join(sorted(missing_modifiers))
-        )
+    if not isinstance(config["modifiers"], dict):
+        raise ValueError("modifiers must be a JSON object")
     return config
 
 
@@ -255,15 +266,64 @@ def trade_good_id(source_path: Path) -> str:
     return source_path.stem[len(prefix) :]
 
 
-def variant_filename(source_path: Path, modifier_name: str) -> str:
+def variant_filename(
+    source_path: Path,
+    modifier_name: str,
+    settings: dict[str, Any] | None = None,
+) -> str:
     good_id = trade_good_id(source_path)
+    if settings is not None and "output_filename" in settings:
+        return str(settings["output_filename"]).format(
+            good=good_id, modifier=modifier_name
+        )
     if modifier_name == "inflation":
         return f"{good_id}_impacts_inflation.png"
     if modifier_name == "pop_demand":
         return f"global_{good_id}_pop_demand.png"
     if modifier_name in ("positive", "negative"):
         return f"{good_id}_{modifier_name}.png"
-    raise ValueError(f"Unsupported modifier name: {modifier_name}")
+    return f"{good_id}_{modifier_name}.png"
+
+
+def modifier_settings(
+    config: dict[str, Any], modifier_name: str
+) -> dict[str, Any]:
+    settings = DEFAULT_MODIFIER_SETTINGS.copy()
+    settings.update(config.get("modifier_defaults", {}))
+    settings.update(config.get("modifiers", {}).get(modifier_name, {}))
+    settings.setdefault("file", f"{modifier_name}.png")
+    return settings
+
+
+def modifier_directories(config: dict[str, Any]) -> tuple[Path, ...]:
+    directories = [repository_path(config["modifier_dir"])]
+    builtin_dir = config.get("builtin_modifier_dir")
+    if builtin_dir:
+        resolved_builtin_dir = repository_path(builtin_dir)
+        if resolved_builtin_dir not in directories:
+            directories.append(resolved_builtin_dir)
+    return tuple(directories)
+
+
+def find_modifier_file(
+    config: dict[str, Any], filename: str
+) -> Path:
+    source_path = Path(filename)
+    if source_path.is_absolute():
+        if source_path.is_file():
+            return source_path
+        raise FileNotFoundError(f"Missing modifier PNG: {source_path}")
+
+    checked = []
+    for directory in modifier_directories(config):
+        candidate = (directory / source_path).resolve()
+        checked.append(candidate)
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(
+        f"Missing modifier PNG {filename}; checked: "
+        + ", ".join(str(path) for path in checked)
+    )
 
 
 def process_good(
@@ -293,11 +353,9 @@ def process_good(
     completed = 0
 
     for name in modifier_names:
-        settings = config["modifiers"][name]
-        modifier_path = repository_path(config["modifier_dir"]) / settings["file"]
-        if not modifier_path.is_file():
-            raise FileNotFoundError(f"Missing {name} modifier PNG: {modifier_path}")
-        output_path = output_dir / variant_filename(source_path, name)
+        settings = modifier_settings(config, name)
+        modifier_path = find_modifier_file(config, settings["file"])
+        output_path = output_dir / variant_filename(source_path, name, settings)
         preview_path = (
             preview_dir / output_path.name
             if preview_dir is not None
@@ -349,7 +407,7 @@ def main() -> int:
     goods.add_argument("--good", help="Good ID, such as cassava.")
     goods.add_argument("--all-goods", action="store_true")
     modifiers = parser.add_mutually_exclusive_group(required=True)
-    modifiers.add_argument("--modifier", choices=MODIFIER_NAMES)
+    modifiers.add_argument("--modifier", help="Modifier ID or overlay PNG filename.")
     modifiers.add_argument("--all-modifiers", action="store_true")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--overwrite", action="store_true")
@@ -375,11 +433,24 @@ def main() -> int:
                 raise FileNotFoundError(
                     f"No base icon_goods_*.png files found in {source_dir}"
                 )
-        modifier_names = (
-            MODIFIER_NAMES
-            if args.all_modifiers
-            else (args.modifier,)
-        )
+        if args.all_modifiers:
+            modifier_names_set: set[str] = set()
+            for modifier_dir in modifier_directories(config):
+                if not modifier_dir.is_dir():
+                    continue
+                modifier_names_set.update(
+                    path.stem for path in modifier_dir.glob("*.png")
+                )
+            modifier_names = tuple(
+                sorted(modifier_names_set, key=str.casefold)
+            )
+            if not modifier_names:
+                raise FileNotFoundError(
+                    "No modifier PNG overlays found in "
+                    + ", ".join(str(path) for path in modifier_directories(config))
+                )
+        else:
+            modifier_names = (Path(args.modifier).stem,)
         failures: list[tuple[Path, Exception]] = []
         total_written = 0
         total_skipped = 0

@@ -1,6 +1,7 @@
 {
   "source_dir": "input/trade_goods",
   "modifier_dir": "input/modifiers",
+  "builtin_modifier_dir": "scripts/assets/builtin_overlays",
   "output_dir": "output/main_menu/gfx/interface/icons/modifier_types",
   "preview_dir": "output/previews",
   "contact_sheet": "output/contact_sheets/{good}.png",
@@ -14,9 +15,20 @@
     "offset_x": 0,
     "offset_y": 0
   },
+  "modifier_defaults": {
+    "max_width": 250,
+    "max_height": 250,
+    "scale": 1.0,
+    "alpha_bbox_threshold": 0,
+    "right_margin": 24,
+    "bottom_margin": 24,
+    "horizontal_offset": 0,
+    "vertical_offset": 0
+  },
   "modifiers": {
     "positive": {
       "file": "positive.png",
+      "output_filename": "{good}_positive.png",
       "max_width": 430,
       "max_height": 430,
       "scale": 1.0,
@@ -28,6 +40,7 @@
     },
     "negative": {
       "file": "negative.png",
+      "output_filename": "{good}_negative.png",
       "max_width": 430,
       "max_height": 430,
       "scale": 1.0,
@@ -39,6 +52,7 @@
     },
     "inflation": {
       "file": "inflation.png",
+      "output_filename": "{good}_impacts_inflation.png",
       "max_width": 430,
       "max_height": 430,
       "scale": 1.0,
@@ -50,6 +64,31 @@
     },
     "pop_demand": {
       "file": "pop_demand.png",
+      "output_filename": "global_{good}_pop_demand.png",
+      "max_width": 430,
+      "max_height": 430,
+      "scale": 1.0,
+      "alpha_bbox_threshold": 0,
+      "right_margin": 24,
+      "bottom_margin": 24,
+      "horizontal_offset": 0,
+      "vertical_offset": 0
+    },
+    "blocked": {
+      "file": "blocked.png",
+      "output_filename": "{good}_blocked.png",
+      "max_width": 430,
+      "max_height": 430,
+      "scale": 1.0,
+      "alpha_bbox_threshold": 0,
+      "right_margin": 24,
+      "bottom_margin": 24,
+      "horizontal_offset": 0,
+      "vertical_offset": 0
+    },
+    "allowed": {
+      "file": "allowed.png",
+      "output_filename": "{good}_allowed.png",
       "max_width": 430,
       "max_height": 430,
       "scale": 1.0,

@@ -8,6 +8,7 @@ from build_modifier_icons import (
     alpha_bbox,
     compose_icon,
     fit_size,
+    find_modifier_file,
     load_rgba,
     process_good,
     resize_rgba,
@@ -141,6 +142,10 @@ class BuildModifierIconsTests(unittest.TestCase):
             variant_filename(source, "pop_demand"),
             "global_oldworld_tropical_orchard_pop_demand.png",
         )
+        self.assertEqual(
+            variant_filename(source, "estate_max_tax"),
+            "oldworld_tropical_orchard_estate_max_tax.png",
+        )
 
     def test_processes_different_source_resolutions_without_overwriting(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -202,6 +207,68 @@ class BuildModifierIconsTests(unittest.TestCase):
                 ),
                 (1, 0),
             )
+
+    def test_composes_unconfigured_catalog_modifier_by_id(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_path = root / "icon_goods_new_rgo.png"
+            base = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+            base.paste((20, 40, 60, 255), (4, 4, 28, 28))
+            base.save(source_path)
+            modifier_dir = root / "modifiers"
+            modifier_dir.mkdir()
+            symbol = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+            symbol.paste((240, 180, 20, 255), (2, 2, 7, 7))
+            symbol.save(modifier_dir / "estate_max_tax.png")
+            output_dir = root / "output"
+            config = {
+                "modifier_dir": str(modifier_dir),
+                "output_dir": str(output_dir),
+                "preview_dir": str(root / "previews"),
+                "contact_sheet": str(root / "sheet.png"),
+                "output_size": [64, 64],
+                "preview_size": [32, 32],
+                "base": {
+                    "max_fraction": 0.6,
+                    "center_x": 0.45,
+                    "center_y": 0.45,
+                },
+                "modifiers": {},
+                "modifier_defaults": {
+                    "max_width": 16,
+                    "max_height": 16,
+                    "right_margin": 2,
+                    "bottom_margin": 2,
+                },
+            }
+
+            self.assertEqual(
+                process_good(
+                    source_path,
+                    ("estate_max_tax",),
+                    config,
+                    False,
+                    False,
+                    False,
+                ),
+                (1, 0),
+            )
+            output = output_dir / "new_rgo_estate_max_tax.png"
+            self.assertTrue(output.is_file())
+            with Image.open(output) as image:
+                self.assertEqual(image.size, (64, 64))
+                self.assertGreater(image.getpixel((60, 60))[3], 0)
+
+    def test_bundled_overlay_is_fallback_for_local_modifier_directory(self) -> None:
+        config = {
+            "modifier_dir": "input/modifiers",
+            "builtin_modifier_dir": "scripts/assets/builtin_overlays",
+        }
+
+        self.assertEqual(
+            find_modifier_file(config, "positive.png"),
+            Path(__file__).with_name("builtin_overlays").resolve() / "positive.png",
+        )
 
 
 if __name__ == "__main__":
